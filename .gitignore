@@ -1,0 +1,32 @@
+# Compiled output
+out/
+*.class
+*.jar
+
+# OSM data files (can be large — download separately)
+data/*.osm
+data/*.pbf
+/tmp/synthetic.osm
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+.project
+.classpath
+.settings/
+.Zone.Identifier
+
+# Maven (kept for reference but not used in build)
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
