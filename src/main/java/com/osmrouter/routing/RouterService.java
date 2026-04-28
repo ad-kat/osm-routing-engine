@@ -41,19 +41,19 @@ public class RouterService {
         Optional<Node> destNode   = graph.nearestNode(destLat, destLon);
 
         if (originNode.isEmpty() || destNode.isEmpty()) {
-            System.err.printf("Could not snap coordinates to graph nodes");
+            System.err.printf("Could not snap coordinates to graph nodes%n");
             return Optional.empty();
         }
 
-        System.out.printf("Routing {} -> {} via {}",
+        System.out.printf("Routing %d -> %d via %s%n",
                 originNode.get().id(), destNode.get().id(), algorithm);
 
         RoutingEngine engine = RoutingEngineFactory.get(algorithm);
         Optional<RouteResult> result = engine.route(graph, originNode.get().id(), destNode.get().id());
 
         result.ifPresentOrElse(
-                r -> System.out.printf("Route found: {}", r),
-                ()  -> System.err.printf("No route found between the given coordinates")
+                r -> System.out.printf("Route found: %s%n", r),
+                ()  -> System.err.printf("No route found between the given coordinates%n")
         );
 
         return result;

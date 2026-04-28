@@ -38,7 +38,7 @@ public class OsmParser {
     );
 
     public RoadGraph parse(String osmFilePath) throws Exception {
-        System.out.printf("Parsing OSM file: {}", osmFilePath);
+        System.out.printf("Parsing OSM file: %s%n", osmFilePath);
         long start = System.currentTimeMillis();
 
         RoadGraph graph = new RoadGraph();
@@ -60,7 +60,7 @@ public class OsmParser {
             }
             reader.close();
         }
-        System.out.printf("First pass: {} raw OSM nodes loaded", allNodes.size());
+        System.out.printf("First pass: %d raw OSM nodes loaded%n", allNodes.size());
 
         // Second pass: collect routable ways, add referenced nodes to graph
         Set<Long> usedNodeIds = new HashSet<>();
@@ -128,7 +128,7 @@ public class OsmParser {
         }
 
         long elapsed = System.currentTimeMillis() - start;
-        System.out.printf("Graph built in {}ms: {}", elapsed, graph);
+        System.out.printf("Graph built in %dms: %s%n", elapsed, graph);
         return graph;
     }
 
