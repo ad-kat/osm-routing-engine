@@ -1,0 +1,132 @@
+<svg width="1200" height="500" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,-apple-system,sans-serif">
+
+  <!-- Backgrounds -->
+  <rect width="1200" height="500" fill="#0d1117"/>
+  <rect width="705" height="500" fill="#0f1623"/>
+
+  <!-- Faint road grid -->
+  <g stroke="#58a6ff" stroke-width="0.4" opacity="0.06">
+    <line x1="80"  y1="0" x2="80"  y2="500"/>
+    <line x1="160" y1="0" x2="160" y2="500"/>
+    <line x1="240" y1="0" x2="240" y2="500"/>
+    <line x1="320" y1="0" x2="320" y2="500"/>
+    <line x1="400" y1="0" x2="400" y2="500"/>
+    <line x1="480" y1="0" x2="480" y2="500"/>
+    <line x1="560" y1="0" x2="560" y2="500"/>
+    <line x1="640" y1="0" x2="640" y2="500"/>
+    <line x1="0" y1="60"  x2="705" y2="60"/>
+    <line x1="0" y1="120" x2="705" y2="120"/>
+    <line x1="0" y1="180" x2="705" y2="180"/>
+    <line x1="0" y1="240" x2="705" y2="240"/>
+    <line x1="0" y1="300" x2="705" y2="300"/>
+    <line x1="0" y1="360" x2="705" y2="360"/>
+    <line x1="0" y1="420" x2="705" y2="420"/>
+    <line x1="0" y1="480" x2="705" y2="480"/>
+  </g>
+
+  <!-- Isochrone polygon: 15-min driving from Trafalgar Sq, 63,302 nodes -->
+  <path d="M198,466 L610,463 L652,395 L666,274 L663,78 L652,29 L633,23 L576,13 L130,10 L119,19 L95,45 L80,65 L26,197 L88,448 L107,458 L126,461 Z"
+        fill="#1d9e75" fill-opacity="0.10" stroke="#1d9e75" stroke-width="1.5" stroke-opacity="0.55" stroke-linejoin="round"/>
+
+  <!-- Driving route: Southwark→Fleet St→Oxford St→Hyde Park (9 min 4 sec, 146ms) -->
+  <polyline points="666,274 577,275 558,294 506,302 443,328 395,323 373,300 293,260"
+            fill="none" stroke="#ef9f27" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Walking route: north through Holborn (95 min 48 sec, 132ms) -->
+  <polyline points="666,274 624,260 624,237 588,213 526,190 430,202 367,211 303,213 256,221 248,227 267,258 293,260"
+            fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7,4"/>
+
+  <!-- Tower Bridge (start) -->
+  <circle cx="666" cy="274" r="5" fill="#ef9f27" stroke="#0f1623" stroke-width="2"/>
+  <circle cx="666" cy="274" r="11" fill="none" stroke="#ef9f27" stroke-width="1" opacity="0.4"/>
+  <text x="666" y="261" fill="#ef9f27" font-size="10" text-anchor="middle" opacity="0.85">Tower Bridge</text>
+
+  <!-- Hyde Park (end) -->
+  <circle cx="293" cy="260" r="5" fill="#58a6ff" stroke="#0f1623" stroke-width="2"/>
+  <circle cx="293" cy="260" r="11" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.4"/>
+  <text x="293" y="247" fill="#58a6ff" font-size="10" text-anchor="middle" opacity="0.85">Hyde Park</text>
+
+  <!-- Trafalgar Sq (isochrone origin) -->
+  <circle cx="496" cy="254" r="4" fill="#1d9e75" stroke="#0f1623" stroke-width="1.5"/>
+  <text x="496" y="241" fill="#1d9e75" font-size="10" text-anchor="middle" opacity="0.8">Trafalgar Sq</text>
+
+  <!-- Isochrone label at bottom -->
+  <text x="350" y="488" fill="#1d9e75" font-size="11" text-anchor="middle" opacity="0.6">15-min drive isochrone · 63,302 nodes reachable</text>
+
+  <!-- Map footer -->
+  <text x="14" y="488" fill="#484f58" font-size="10">Greater London · OpenStreetMap data</text>
+
+  <!-- Panel divider -->
+  <line x1="706" y1="16" x2="706" y2="484" stroke="#21262d" stroke-width="1"/>
+
+  <!-- ── STATS PANEL ── -->
+
+  <!-- Title -->
+  <text x="730" y="46" fill="#e6edf3" font-size="19" font-weight="700">OSM Graph Routing Engine</text>
+  <text x="730" y="66" fill="#8b949e" font-size="12">Java 21 · Dijkstra + A* · OpenStreetMap · REST API · Docker</text>
+
+  <line x1="730" y1="80" x2="1185" y2="80" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Real London data -->
+  <text x="730" y="103" fill="#484f58" font-size="10" letter-spacing="1.2">REAL LONDON DATA (64,844 nodes)</text>
+
+  <!-- Row: Driving -->
+  <rect x="730" y="111" width="455" height="32" rx="5" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+  <rect x="730" y="111" width="4"   height="32" rx="2" fill="#ef9f27"/>
+  <text x="746" y="131" fill="#8b949e" font-size="12">Driving  7.9 km</text>
+  <text x="910" y="131" fill="#ef9f27" font-size="12" font-weight="600">9 min 4 sec</text>
+  <text x="1060" y="131" fill="#484f58" font-size="12">146 ms · 59,249 nodes</text>
+
+  <!-- Row: Walking -->
+  <rect x="730" y="147" width="455" height="32" rx="5" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+  <rect x="730" y="147" width="4"   height="32" rx="2" fill="#58a6ff"/>
+  <text x="746" y="167" fill="#8b949e" font-size="12">Walking  8.0 km</text>
+  <text x="910" y="167" fill="#58a6ff" font-size="12" font-weight="600">95 min 48 sec</text>
+  <text x="1060" y="167" fill="#484f58" font-size="12">132 ms · 30,805 nodes</text>
+
+  <!-- Row: Isochrone -->
+  <rect x="730" y="183" width="455" height="32" rx="5" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+  <rect x="730" y="183" width="4"   height="32" rx="2" fill="#1d9e75"/>
+  <text x="746" y="203" fill="#8b949e" font-size="12">Isochrone  15 min drive</text>
+  <text x="910" y="203" fill="#1d9e75" font-size="12" font-weight="600">63,302 nodes</text>
+  <text x="1060" y="203" fill="#484f58" font-size="12">real-time convex hull</text>
+
+  <line x1="730" y1="226" x2="1185" y2="226" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Features -->
+  <text x="730" y="248" fill="#484f58" font-size="10" letter-spacing="1.2">FEATURES</text>
+
+  <g fill="#e6edf3" font-size="12">
+    <text x="730" y="270"><tspan fill="#3fb950">✓</tspan>  Dijkstra + A* (time-optimal)</text>
+    <text x="730" y="294"><tspan fill="#3fb950">✓</tspan>  Turn restrictions (OSM relations)</text>
+    <text x="730" y="318"><tspan fill="#3fb950">✓</tspan>  Travel profiles (drive/walk/cycle)</text>
+    <text x="730" y="342"><tspan fill="#3fb950">✓</tspan>  Isochrone zones (delivery radius)</text>
+    <text x="730" y="366"><tspan fill="#3fb950">✓</tspan>  Route alternatives (3 paths)</text>
+
+    <text x="960" y="270"><tspan fill="#3fb950">✓</tspan>  Multi-stop waypoints</text>
+    <text x="960" y="294"><tspan fill="#3fb950">✓</tspan>  Turn-by-turn directions</text>
+    <text x="960" y="318"><tspan fill="#3fb950">✓</tspan>  GeoJSON REST API (6 endpoints)</text>
+    <text x="960" y="342"><tspan fill="#3fb950">✓</tspan>  Spatial grid index O(1) lookup</text>
+    <text x="960" y="366"><tspan fill="#3fb950">✓</tspan>  Metrics · Docker · Maven</text>
+  </g>
+
+  <line x1="730" y1="384" x2="1185" y2="384" stroke="#21262d" stroke-width="1"/>
+
+  <!-- API snippet -->
+  <text x="730" y="406" fill="#484f58" font-size="10" letter-spacing="1.2">REST API</text>
+  <rect x="730" y="413" width="455" height="22" rx="4" fill="#161b22"/>
+  <text x="740" y="428" fill="#8b949e" font-size="11" font-family="monospace">GET /route · /isochrone · /route/waypoints · /route/alternatives · /metrics</text>
+
+  <!-- Legend -->
+  <line x1="730" y1="458" x2="760" y2="458" stroke="#ef9f27" stroke-width="3"/>
+  <text x="768" y="462" fill="#8b949e" font-size="11">Driving</text>
+
+  <line x1="840" y1="458" x2="870" y2="458" stroke="#58a6ff" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="878" y="462" fill="#8b949e" font-size="11">Walking</text>
+
+  <rect x="954" y="451" width="13" height="13" rx="3" fill="#1d9e75" fill-opacity="0.2" stroke="#1d9e75" stroke-width="1"/>
+  <text x="974" y="462" fill="#8b949e" font-size="11">Isochrone</text>
+
+  <text x="730" y="490" fill="#484f58" font-size="10">Tower Bridge (51.505, -0.075) → Hyde Park (51.507, -0.166) · A* algorithm</text>
+
+</svg>

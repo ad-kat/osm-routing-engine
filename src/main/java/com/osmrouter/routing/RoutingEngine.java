@@ -13,7 +13,10 @@ import java.util.*;
  * routing platforms expose multiple algorithm backends.
  */
 public interface RoutingEngine {
-    Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId);
+    Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId, TravelProfile profile);
+    default Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId) {
+        return route(graph, sourceId, targetId, TravelProfile.DRIVING);
+    }
     String name();
 }
 
@@ -30,45 +33,49 @@ class DijkstraEngine implements RoutingEngine {
     public String name() { return "Dijkstra"; }
 
     @Override
-    public Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId) {
+    public Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId, TravelProfile profile) {
         long startTime = System.currentTimeMillis();
 
-        Map<Long, Double> dist    = new HashMap<>();
-        Map<Long, Long>   prev    = new HashMap<>();
-        PriorityQueue<long[]> pq  = new PriorityQueue<>(Comparator.comparingDouble(a -> a[1]));
-        // pq entries: [nodeId, costSoFar_scaled]
+        Map<Long, Double> dist   = new HashMap<>();
+        Map<Long, Long>   prev   = new HashMap<>();
+        PriorityQueue<long[]> pq = new PriorityQueue<>(Comparator.comparingDouble(a -> Double.longBitsToDouble(a[2])));
 
         dist.put(sourceId, 0.0);
-        pq.offer(new long[]{sourceId, 0L});
+        pq.offer(new long[]{-1L, sourceId, 0L});
         int explored = 0;
 
         while (!pq.isEmpty()) {
-            long[] curr  = pq.poll();
-            long   nodeId = curr[0];
-            double cost   = Double.longBitsToDouble(curr[1]);
+            long[] curr   = pq.poll();
+            long prevId   = curr[0];
+            long nodeId   = curr[1];
+            double cost   = Double.longBitsToDouble(curr[2]);
 
             if (cost > dist.getOrDefault(nodeId, Double.MAX_VALUE)) continue;
             explored++;
-
             if (nodeId == targetId) break;
 
             for (Edge e : graph.getEdges(nodeId)) {
-                double newCost = cost + e.weightMetres();
+                if (!profile.allows(e.highwayType())) continue;
+                if (graph.isRestricted(prevId, nodeId, e.toId())) continue;
+                double newCost = cost + e.weightMetres() / profile.speedMs(e.highwayType());
                 if (newCost < dist.getOrDefault(e.toId(), Double.MAX_VALUE)) {
                     dist.put(e.toId(), newCost);
                     prev.put(e.toId(), nodeId);
-                    pq.offer(new long[]{e.toId(), Double.doubleToLongBits(newCost)});
+                    pq.offer(new long[]{nodeId, e.toId(), Double.doubleToLongBits(newCost)});
                 }
             }
         }
 
         if (!dist.containsKey(targetId)) return Optional.empty();
-
         List<Node> path = reconstructPath(graph, prev, sourceId, targetId);
-        double totalDist = dist.get(targetId);
         long ms = System.currentTimeMillis() - startTime;
+        return Optional.of(new RouteResult(path, pathDistance(path), dist.get(targetId), name(), ms, explored));
+    }
 
-        return Optional.of(new RouteResult(path, totalDist, totalDist / AVG_SPEED_MS, name(), ms, explored));
+    static double pathDistance(List<Node> path) {
+        double d = 0;
+        for (int i = 0; i < path.size() - 1; i++) d += path.get(i).distanceTo(path.get(i + 1));
+        return d;
     }
 
     static List<Node> reconstructPath(RoadGraph graph, Map<Long, Long> prev, long source, long target) {
@@ -98,56 +105,51 @@ class AStarEngine implements RoutingEngine {
     public String name() { return "A*"; }
 
     @Override
-    public Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId) {
+    public Optional<RouteResult> route(RoadGraph graph, long sourceId, long targetId, TravelProfile profile) {
         long startTime = System.currentTimeMillis();
         Node target = graph.getNode(targetId);
         if (target == null) return Optional.empty();
 
         Map<Long, Double> gScore = new HashMap<>();
         Map<Long, Long>   prev   = new HashMap<>();
-
-        // Priority queue ordered by f = g + h
-        PriorityQueue<long[]> open = new PriorityQueue<>(Comparator.comparingDouble(a -> Double.longBitsToDouble(a[1])));
+        PriorityQueue<long[]> open = new PriorityQueue<>(Comparator.comparingDouble(a -> Double.longBitsToDouble(a[2])));
 
         gScore.put(sourceId, 0.0);
-        double h0 = heuristic(graph.getNode(sourceId), target);
-        open.offer(new long[]{sourceId, Double.doubleToLongBits(h0)});
+        double h0 = heuristic(graph.getNode(sourceId), target, profile);
+        open.offer(new long[]{-1L, sourceId, Double.doubleToLongBits(h0)});
         int explored = 0;
 
         while (!open.isEmpty()) {
             long[] curr   = open.poll();
-            long   nodeId = curr[0];
-            double fCurr  = Double.longBitsToDouble(curr[1]);
+            long prevId   = curr[0];
+            long nodeId   = curr[1];
             explored++;
-
             if (nodeId == targetId) break;
 
             double gCurr = gScore.getOrDefault(nodeId, Double.MAX_VALUE);
-
             for (Edge e : graph.getEdges(nodeId)) {
-                double tentativeG = gCurr + e.weightMetres();
+                if (!profile.allows(e.highwayType())) continue;
+                if (graph.isRestricted(prevId, nodeId, e.toId())) continue;
+                double tentativeG = gCurr + e.weightMetres() / profile.speedMs(e.highwayType());
                 if (tentativeG < gScore.getOrDefault(e.toId(), Double.MAX_VALUE)) {
                     gScore.put(e.toId(), tentativeG);
                     prev.put(e.toId(), nodeId);
                     Node neighbour = graph.getNode(e.toId());
-                    double h = (neighbour != null) ? heuristic(neighbour, target) : 0;
-                    open.offer(new long[]{e.toId(), Double.doubleToLongBits(tentativeG + h)});
+                    double h = (neighbour != null) ? heuristic(neighbour, target, profile) : 0;
+                    open.offer(new long[]{nodeId, e.toId(), Double.doubleToLongBits(tentativeG + h)});
                 }
             }
         }
 
         if (!gScore.containsKey(targetId)) return Optional.empty();
-
         List<Node> path = DijkstraEngine.reconstructPath(graph, prev, sourceId, targetId);
-        double totalDist = gScore.get(targetId);
         long ms = System.currentTimeMillis() - startTime;
-
-        return Optional.of(new RouteResult(path, totalDist, totalDist / AVG_SPEED_MS, name(), ms, explored));
+        return Optional.of(new RouteResult(path, DijkstraEngine.pathDistance(path), gScore.get(targetId), name(), ms, explored));
     }
 
-    /** Admissible heuristic: straight-line Haversine distance */
-    private double heuristic(Node a, Node b) {
-        return a.distanceTo(b);
+    /** Admissible heuristic: min travel time = straight-line dist / max possible speed */
+    private double heuristic(Node a, Node b, TravelProfile profile) {
+        return a.distanceTo(b) / profile.maxSpeedMs();
     }
 }
 

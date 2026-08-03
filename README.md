@@ -1,63 +1,118 @@
+<div align="center">
+
+![OSM Graph Routing Engine](hero.svg)
+
 # OSM Graph Routing Engine
 
-A graph-based routing engine built in **Java 21** that parses OpenStreetMap data, constructs a spatial road graph, and computes shortest paths using **Dijkstra** and **A\*** algorithms. Exposes routes as GeoJSON via a lightweight REST API.
+[![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/projects/jdk/21/)
+[![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven)](https://maven.apache.org/)
+[![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-Built as a demonstration of spatial data engineering and graph algorithm implementation — directly relevant to map-making platforms like HERE.
+</div>
 
----
-
-## Features
-
-- **OSM XML parser** (StAX streaming) — handles large extracts in O(1) memory per element
-- **Spatial grid index** — O(1) average nearest-node lookup for snapping lat/lon to the graph
-- **Dijkstra** — classic O((V+E) log V) shortest-path via binary heap
-- **A\*** — Haversine heuristic guides search toward destination; explores **97% fewer nodes** than Dijkstra on cross-city routes
-- **Haversine distance** — accurate great-circle distance for edge weights and the A\* heuristic
-- **GeoJSON output** — route geometry ready for direct rendering on a map frontend
-- **REST API** — `GET /route` and `GET /health` via JDK's built-in HTTP server (no framework dependency)
-- **Oneway street support** — one-directional edges parsed from OSM `oneway=yes` tags
-- **Road classification filtering** — only routable highway types ingested (motorway → residential)
-- **17 unit tests** — graph structure, spatial snapping, Dijkstra correctness, A\* optimality, Haversine accuracy, GeoJSON validity
+A routing engine written in Java 21 that reads OpenStreetMap XML files, builds a road graph in memory, and finds shortest paths. It runs as a REST API and returns GeoJSON with turn-by-turn street directions. All benchmarks below are from real London OSM data, not a synthetic grid.
 
 ---
 
-## Benchmark Results (15×15 synthetic grid, 228 nodes, 849 edges)
+## Benchmark
 
-| Route | Algorithm | Distance | Nodes Explored | Time |
+Greater London extract, 64,844 nodes. Route: Tower Bridge to Hyde Park.
+
+| Mode | Distance | Time | Compute | Nodes explored |
 |---|---|---|---|---|
-| SW → NE (cross-city) | Dijkstra | 5.57 km | 191 | 7 ms |
-| SW → NE (cross-city) | **A\*** | 5.57 km | **6** | **1 ms** |
-| Short hop | Dijkstra | 0.54 km | 7 | <1 ms |
-| Short hop | **A\*** | 0.54 km | **3** | **<1 ms** |
-| Mid-network | Dijkstra | 4.12 km | 220 | 2 ms |
-| Mid-network | **A\*** | 4.12 km | **95** | **<1 ms** |
+| Driving, A* | 7.89 km | 9 min 4 sec | 146 ms | 59,249 |
+| Walking, A* | 8.05 km | 95 min 48 sec | 132 ms | 30,805 |
+| Isochrone, 15-min drive | — | — | real-time | 63,302 reachable |
 
-A\* finds identical shortest paths while exploring up to **97% fewer nodes** — the Haversine heuristic is admissible (never overestimates), guaranteeing optimality.
+The walking route explored 48% fewer nodes. Walking mode blocks motorways and trunk roads before the algorithm runs, so A* never touches roads the profile can't use. The performance difference is a side effect of the filter, not a tuning decision.
 
 ---
 
-## Project Structure
+## Endpoints
 
 ```
-osm-router/
-├── src/main/java/com/osmrouter/
-│   ├── Main.java                          # Entry point, demo runner
-│   ├── model/
-│   │   ├── Node.java                      # OSM node + Haversine distance
-│   │   ├── Edge.java                      # Directed weighted edge
-│   │   └── RouteResult.java               # Route + GeoJSON serializer
-│   ├── graph/
-│   │   └── RoadGraph.java                 # Adjacency list + spatial grid index
-│   ├── parser/
-│   │   ├── OsmParser.java                 # Two-pass StAX OSM XML parser
-│   │   └── SyntheticOsmGenerator.java     # Grid network generator for testing
-│   ├── routing/
-│   │   ├── RoutingEngine.java             # Interface + Dijkstra + A* + Factory
-│   │   └── RouterService.java             # Coordinate snapping + benchmark
-│   └── api/
-│       └── RoutingApiServer.java          # Lightweight HTTP REST server
-└── src/test/java/com/osmrouter/
-    └── TestRunner.java                    # 17 self-contained unit tests
+GET /route                 time-optimal route with turn-by-turn directions
+GET /route/waypoints       multi-stop routing (A to B to C)
+GET /route/alternatives    up to N distinct routes, roads penalized between runs
+GET /isochrone             all nodes reachable within X minutes
+GET /health                node and edge count
+GET /metrics               total requests, average compute time
+```
+
+---
+
+## API
+
+### /route
+
+```bash
+curl "http://localhost:8080/route?originLat=51.5055&originLon=-0.0754\
+&destLat=51.5073&destLon=-0.1657&algorithm=astar&profile=driving"
+```
+
+```json
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [[-0.096726, 51.505067], ["..."]]
+  },
+  "properties": {
+    "distance_km": 7.892,
+    "estimated_time": "9 min 4 sec",
+    "algorithm": "A*",
+    "compute_time_ms": 146,
+    "nodes_explored": 59249,
+    "path_nodes": 578,
+    "directions": [
+      "Follow Southwark Street for 585 m",
+      "Follow Fleet Street for 470 m",
+      "Follow Oxford Street for 1650 m",
+      "Arrive at destination"
+    ]
+  }
+}
+```
+
+`algorithm` accepts `astar` (default) or `dijkstra`. `profile` accepts `driving` (default), `walking`, or `cycling`.
+
+### /route/waypoints
+
+```bash
+curl "http://localhost:8080/route/waypoints?\
+waypoints=51.490,-0.180;51.510,-0.160;51.531,-0.138\
+&algorithm=astar&profile=driving"
+```
+
+### /route/alternatives
+
+```bash
+curl "http://localhost:8080/route/alternatives?\
+originLat=51.490&originLon=-0.180\
+&destLat=51.531&destLon=-0.138\
+&count=3&profile=driving"
+```
+
+Returns a GeoJSON FeatureCollection. Each alternative runs A* with edges from previous routes penalized, so you get genuinely different paths rather than tiny variations on the same one.
+
+### /isochrone
+
+```bash
+curl "http://localhost:8080/isochrone?\
+lat=51.5080&lon=-0.1281&minutes=15&profile=driving"
+```
+
+Runs Dijkstra outward from the origin and stops at the time limit. Returns a GeoJSON Polygon (convex hull of all reachable nodes). Paste the response into [geojson.io](https://geojson.io) to see it over a real map.
+
+### /health and /metrics
+
+```bash
+curl "http://localhost:8080/health"
+# {"status":"ok","nodes":64844,"edges":...}
+
+curl "http://localhost:8080/metrics"
+# {"nodes":64844,"edges":...,"total_requests":14,"avg_compute_ms":5.9}
 ```
 
 ---
@@ -65,65 +120,105 @@ osm-router/
 ## Quick Start
 
 ```bash
-# Compile
-javac --enable-preview -source 21 \
-  -d out/classes \
-  $(find src/main -name "*.java")
+# No data needed, runs on a synthetic 15x15 grid
+docker run -p 8080:8080 osm-router
 
-# Run demo (generates synthetic 15x15 grid network)
-java --enable-preview -cp out/classes com.osmrouter.Main
+# Real city data
+wget -O london.osm "https://overpass-api.de/api/map?bbox=-0.20,51.48,-0.10,51.54"
+docker run -p 8080:8080 -v $(pwd)/london.osm:/map.osm osm-router /map.osm --serve
+```
 
-# Run with a real OSM extract (download from https://download.geofabrik.de)
-java --enable-preview -cp out/classes com.osmrouter.Main path/to/region.osm
+Build from source:
 
-# Start REST API server
-java --enable-preview -cp out/classes com.osmrouter.Main --serve
-
-# Run tests
-javac --enable-preview -source 21 \
-  -cp out/classes -d out/test-classes \
-  src/test/java/com/osmrouter/TestRunner.java
-java --enable-preview \
-  -cp out/classes:out/test-classes \
-  com.osmrouter.TestRunner
+```bash
+mvn package
+java --enable-preview -jar target/osm-routing-engine-1.0.0.jar --serve
 ```
 
 ---
 
-## REST API
+## Travel Profiles
+
+Each profile has its own speed table and road filter. Routing optimizes travel time, not distance, so a 3 km motorway stretch beats a 2 km residential detour for the driving profile.
+
+| Profile | Motorway | Primary | Residential | Living street |
+|---|---|---|---|---|
+| driving | 120 km/h | 60 km/h | 30 km/h | 10 km/h |
+| walking | blocked | 5 km/h | 5 km/h | 5 km/h |
+| cycling | blocked | 15 km/h | 15 km/h | 15 km/h |
+
+---
+
+## Turn Restrictions
+
+The parser does three passes over the OSM XML: nodes, then ways, then relations. On the third pass it reads `type=restriction` relations and stores each one as a `(fromNode, viaNode, toNode)` triple. Both Dijkstra and A* check that triple on every edge expansion, so `no_left_turn` and `no_u_turn` actually affect routing. On the London extract this matters, the synthetic grid has none.
 
 ```
-GET /route?originLat=51.5074&originLon=-0.1278&destLat=51.5033&destLon=-0.1195&algorithm=astar
-
-Response (GeoJSON):
-{
-  "type": "Feature",
-  "geometry": {
-    "type": "LineString",
-    "coordinates": [[-0.1278, 51.5074], ...]
-  },
-  "properties": {
-    "distance_km": 0.612,
-    "estimated_time": "2 min 38 sec",
-    "algorithm": "A*",
-    "compute_time_ms": 1,
-    "nodes_explored": 14,
-    "path_nodes": 8
-  }
-}
-
-GET /health
-{"status":"ok","nodes":228,"edges":849}
+OSM relation structure:
+  member way  role="from"
+  member node role="via"
+  member way  role="to"
+  tag k="restriction" v="no_left_turn"
 ```
 
 ---
 
-## Design Decisions
+## Project Structure
 
-**Why StAX over DOM parsing?** OSM planet files exceed 70 GB. StAX processes elements as a stream with O(1) memory per element — the entire file never loads into RAM.
+```
+src/main/java/com/osmrouter/
+├── Main.java
+├── model/
+│   ├── Node.java               OSM node, Haversine distance
+│   ├── Edge.java               directed weighted edge
+│   └── RouteResult.java        route result, GeoJSON output, directions
+├── graph/
+│   └── RoadGraph.java          adjacency list, spatial grid index, turn restrictions
+├── parser/
+│   ├── OsmParser.java          3-pass StAX XML parser
+│   └── SyntheticOsmGenerator.java
+├── routing/
+│   ├── RoutingEngine.java      Dijkstra and A* (Strategy pattern)
+│   ├── RouterService.java      coordinate snapping, directions, isochrone, alternatives
+│   └── TravelProfile.java      driving/walking/cycling speed tables
+└── api/
+    └── RoutingApiServer.java   HTTP server, 6 endpoints, Java 21 virtual threads
+```
 
-**Why a spatial grid index?** Linear scan for nearest-node is O(N) — unacceptable when snapping thousands of query coordinates per second in a production routing service. The grid partitions space into ~1 km² cells, reducing average lookup to O(1).
+---
 
-**Why A\* over Dijkstra?** Dijkstra explores nodes in all directions equally. A\*'s Haversine heuristic focuses the search toward the destination. On the benchmark grid, A\* explores 97% fewer nodes with identical path quality — this gap widens dramatically on real-world city-scale graphs.
+## Design Notes
 
-**Why Java 21 virtual threads in the API server?** Virtual threads (Project Loom) handle each HTTP connection on a lightweight thread with no blocking overhead — relevant for a routing API that may handle hundreds of concurrent requests.
+**Parser uses StAX, not DOM.** Full OSM planet files are over 70 GB. StAX reads one element at a time without loading the document into memory.
+
+**Nearest-node lookup uses a spatial grid.** A linear scan across 64,844 nodes on every query would be too slow. The grid partitions space into roughly 1 km² cells so a lookup checks at most a handful of candidates.
+
+**Routing optimizes time, not distance.** I spent a while assuming distance-optimal was the right default. It isn't. Optimizing by distance routes cars through residential streets to avoid slightly longer motorways. The fix was to weight each edge as `metres / speed_for_road_type`, which is just travel time in seconds.
+
+**A* heuristic divides by max speed, not average.** `h(n) = straight_line_distance / max_speed` is admissible because it never overestimates. If I used average speed the heuristic would overestimate on high-speed roads and the algorithm would no longer guarantee the optimal path.
+
+**Isochrone uses a convex hull.** After running Dijkstra outward to the time limit, I take the convex hull of all reachable nodes. It's a reasonable outer boundary and requires no external library. A concave hull would trace the actual reachable area more accurately but needs spatial software to compute correctly.
+
+---
+
+## Algorithms
+
+|  | Dijkstra | A* |
+|---|---|---|
+| Explores | All directions equally | Guided toward destination by Haversine heuristic |
+| Optimal | Always | Yes, if heuristic is admissible |
+| Use case | Multi-target, small graphs | Single-target on large graphs |
+
+---
+
+## Tests
+
+```bash
+# No dependencies
+./build.sh test
+
+# JUnit 5
+mvn test
+```
+
+Covers graph construction, spatial snapping, Dijkstra and A* correctness, path optimality, Haversine accuracy, GeoJSON output, profile filtering, and turn restriction enforcement.

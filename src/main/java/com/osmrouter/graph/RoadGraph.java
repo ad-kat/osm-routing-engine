@@ -22,6 +22,9 @@ public class RoadGraph {
     private static final double CELL_SIZE = 0.01; // degrees
     private final Map<Long, List<Long>> spatialIndex = new HashMap<>();
 
+    // Turn restrictions: viaNodeId → (fromNodeId → forbidden toNodeIds)
+    private final Map<Long, Map<Long, Set<Long>>> restrictions = new HashMap<>();
+
     // ---------------------------------------------------------------
     // Graph construction
     // ---------------------------------------------------------------
@@ -100,6 +103,27 @@ public class RoadGraph {
     }
 
     public boolean containsNode(long id) { return nodes.containsKey(id); }
+
+    /** Returns the road name on the directed edge fromId→toId, or empty string. */
+    public String getEdgeRoadName(long fromId, long toId) {
+        return getEdges(fromId).stream()
+            .filter(e -> e.toId() == toId)
+            .map(Edge::roadName)
+            .findFirst().orElse("");
+    }
+
+    public void addRestriction(long fromNodeId, long viaNodeId, long toNodeId) {
+        restrictions.computeIfAbsent(viaNodeId, k -> new HashMap<>())
+                    .computeIfAbsent(fromNodeId, k -> new HashSet<>())
+                    .add(toNodeId);
+    }
+
+    public boolean isRestricted(long fromNodeId, long viaNodeId, long toNodeId) {
+        Map<Long, Set<Long>> m = restrictions.get(viaNodeId);
+        if (m == null) return false;
+        Set<Long> forbidden = m.get(fromNodeId);
+        return forbidden != null && forbidden.contains(toNodeId);
+    }
 
     public int nodeCount() { return nodes.size(); }
 

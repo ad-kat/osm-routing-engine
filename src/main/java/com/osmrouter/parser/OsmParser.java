@@ -65,6 +65,7 @@ public class OsmParser {
         // Second pass: collect routable ways, add referenced nodes to graph
         Set<Long> usedNodeIds = new HashSet<>();
         List<WayData> ways = new ArrayList<>();
+        Map<Long, WayData> waysById = new HashMap<>();
 
         try (InputStream is = new FileInputStream(osmFilePath)) {
             XMLStreamReader reader = XMLInputFactory.newInstance().createXMLStreamReader(is);
@@ -75,7 +76,10 @@ public class OsmParser {
 
                 if (event == XMLStreamConstants.START_ELEMENT) {
                     switch (reader.getLocalName()) {
-                        case "way" -> currentWay = new WayData();
+                        case "way" -> {
+                            currentWay = new WayData();
+                            currentWay.id = Long.parseLong(reader.getAttributeValue(null, "id"));
+                        }
                         case "nd" -> {
                             if (currentWay != null) {
                                 long ref = Long.parseLong(reader.getAttributeValue(null, "ref"));
@@ -96,6 +100,7 @@ public class OsmParser {
                     if (currentWay != null && ROUTABLE_HIGHWAY_TYPES.contains(currentWay.highwayType)) {
                         ways.add(currentWay);
                         usedNodeIds.addAll(currentWay.nodeRefs);
+                        waysById.put(currentWay.id, currentWay);
                     }
                     currentWay = null;
                 }
@@ -129,11 +134,66 @@ public class OsmParser {
 
         long elapsed = System.currentTimeMillis() - start;
         System.out.printf("Graph built in %dms: %s%n", elapsed, graph);
+        applyRestrictions(osmFilePath, waysById, graph);
         return graph;
+    }
+
+    private void applyRestrictions(String osmFilePath, Map<Long, WayData> waysById, RoadGraph graph) throws Exception {
+        int count = 0;
+        try (InputStream is = new FileInputStream(osmFilePath)) {
+            XMLStreamReader reader = XMLInputFactory.newInstance().createXMLStreamReader(is);
+            long fromWayId = 0, viaNodeId = 0, toWayId = 0;
+            String restrictionType = null;
+            boolean inRestriction = false;
+
+            while (reader.hasNext()) {
+                int event = reader.next();
+                if (event == XMLStreamConstants.START_ELEMENT) {
+                    switch (reader.getLocalName()) {
+                        case "relation" -> { fromWayId = viaNodeId = toWayId = 0; restrictionType = null; inRestriction = false; }
+                        case "member" -> {
+                            String role = reader.getAttributeValue(null, "role");
+                            String type = reader.getAttributeValue(null, "type");
+                            long ref = Long.parseLong(reader.getAttributeValue(null, "ref"));
+                            if ("from".equals(role) && "way".equals(type))  fromWayId = ref;
+                            if ("via".equals(role)  && "node".equals(type)) viaNodeId = ref;
+                            if ("to".equals(role)   && "way".equals(type))  toWayId   = ref;
+                        }
+                        case "tag" -> {
+                            String k = reader.getAttributeValue(null, "k");
+                            String v = reader.getAttributeValue(null, "v");
+                            if ("type".equals(k) && "restriction".equals(v))     inRestriction = true;
+                            if ("restriction".equals(k) && v.startsWith("no_"))  restrictionType = v;
+                        }
+                    }
+                } else if (event == XMLStreamConstants.END_ELEMENT && "relation".equals(reader.getLocalName())) {
+                    if (inRestriction && restrictionType != null && viaNodeId != 0 && fromWayId != 0 && toWayId != 0) {
+                        WayData from = waysById.get(fromWayId);
+                        WayData to   = waysById.get(toWayId);
+                        if (from != null && to != null) {
+                            long fn = adjacentNode(from.nodeRefs, viaNodeId, true);
+                            long tn = adjacentNode(to.nodeRefs, viaNodeId, false);
+                            if (fn != -1 && tn != -1) { graph.addRestriction(fn, viaNodeId, tn); count++; }
+                        }
+                    }
+                }
+            }
+            reader.close();
+        }
+        System.out.printf("Turn restrictions applied: %d%n", count);
+    }
+
+    private static long adjacentNode(List<Long> refs, long via, boolean before) {
+        for (int i = 0; i < refs.size(); i++) {
+            if (refs.get(i) == via)
+                return before ? (i > 0 ? refs.get(i-1) : -1) : (i < refs.size()-1 ? refs.get(i+1) : -1);
+        }
+        return -1;
     }
 
     /** Mutable accumulator for a single OSM way during parsing */
     private static class WayData {
+        long id;
         List<Long> nodeRefs = new ArrayList<>();
         String highwayType = "";
         String name = "";

@@ -12,8 +12,20 @@ public record RouteResult(
         double estimatedTimeSeconds,
         String algorithm,
         long computeTimeMs,
-        int nodesExplored
+        int nodesExplored,
+        List<String> directions
 ) {
+    /** Backward-compatible constructor — no directions. */
+    public RouteResult(List<Node> path, double totalDistanceMetres, double estimatedTimeSeconds,
+                       String algorithm, long computeTimeMs, int nodesExplored) {
+        this(path, totalDistanceMetres, estimatedTimeSeconds, algorithm, computeTimeMs, nodesExplored, List.of());
+    }
+
+    /** Return a copy with directions attached (immutable record pattern). */
+    public RouteResult withDirections(List<String> dirs) {
+        return new RouteResult(path, totalDistanceMetres, estimatedTimeSeconds, algorithm, computeTimeMs, nodesExplored, dirs);
+    }
+
     public double totalDistanceKm() {
         return totalDistanceMetres / 1000.0;
     }
@@ -39,8 +51,13 @@ public record RouteResult(
         sb.append(String.format("\"algorithm\":\"%s\",", algorithm));
         sb.append(String.format("\"compute_time_ms\":%d,", computeTimeMs));
         sb.append(String.format("\"nodes_explored\":%d,", nodesExplored));
-        sb.append(String.format("\"path_nodes\":%d", path.size()));
-        sb.append("}}");
+        sb.append(String.format("\"path_nodes\":%d,", path.size()));
+        sb.append("\"directions\":[");
+        for (int i = 0; i < directions.size(); i++) {
+            sb.append("\"").append(directions.get(i).replace("\"", "\\\"")).append("\"");
+            if (i < directions.size() - 1) sb.append(",");
+        }
+        sb.append("]}}");
         return sb.toString();
     }
 
