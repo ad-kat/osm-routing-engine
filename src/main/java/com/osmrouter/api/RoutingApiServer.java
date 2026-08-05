@@ -73,6 +73,9 @@ public class RoutingApiServer {
             double originLon = Double.parseDouble(params.getOrDefault("originLon", "0"));
             double destLat   = Double.parseDouble(params.getOrDefault("destLat",   "0"));
             double destLon   = Double.parseDouble(params.getOrDefault("destLon",   "0"));
+            if (Math.abs(originLat) > 90 || Math.abs(destLat) > 90 ||
+                Math.abs(originLon) > 180 || Math.abs(destLon) > 180)
+                throw new NumberFormatException("Coordinates out of range");
             String algorithm = params.getOrDefault("algorithm", "astar");
             TravelProfile profile = TravelProfile.from(params.getOrDefault("profile", "driving"));
 
